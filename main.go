@@ -81,7 +81,7 @@ func saveToDuckDB(feed *gofeed.Feed) {
 	// Create a table if it doesn't exist
 	_, err = conn.Exec(`CREATE TABLE IF NOT EXISTS rss_feeds (
         title TEXT,
-        link TEXT,
+        link TEXT PRIMARY KEY,
         description TEXT,
         published TEXT
     )`)
@@ -90,12 +90,25 @@ func saveToDuckDB(feed *gofeed.Feed) {
 		return
 	}
 
-	// Insert feed data
+	// Insert feed data only if the link does not already exist
 	for _, item := range feed.Items {
-		_, err = conn.Exec(`INSERT INTO rss_feeds (title, link, description, published) VALUES (?, ?, ?, ?)`,
-			item.Title, item.Link, item.Description, item.Published)
+		var exists bool
+		err = conn.QueryRow(`SELECT EXISTS(SELECT 1 FROM rss_feeds WHERE link = ?)`, item.Link).Scan(&exists)
 		if err != nil {
-			fmt.Println("Error inserting data:", err)
+			fmt.Println("Error checking for existing entry:", err)
+			continue
+		}
+
+		if !exists {
+			_, err = conn.Exec(`INSERT INTO rss_feeds (title, link, description, published) VALUES (?, ?, ?, ?)`,
+				item.Title, item.Link, item.Description, item.Published)
+			if err != nil {
+				fmt.Println("Error inserting data:", err)
+			} else {
+				fmt.Printf("Inserted: %s\n", item.Title)
+			}
+		} else {
+			fmt.Printf("Entry already exists: %s\n", item.Link)
 		}
 	}
 }
