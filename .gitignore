@@ -1,2 +1,4 @@
 !.gitignore
+primus*
+feeds.tsv
 
